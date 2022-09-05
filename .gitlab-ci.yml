@@ -56,10 +56,10 @@ letsEncrypt-NewCert:
     subDomain: $subDomain
   script:
     - echo $subDomain
-    - certbot certonly -d $subDomain.{{domain}} --webroot -w /containerData/homeServices/nginx/challenges
+    - certbot certonly -d $subDomain.$domain --webroot -w /containerData/homeServices/nginx/challenges
     - mkdir /containerData/homeServices/nginx/certs/$subDomain || echo Dir Exists-$subDomain
-    - cp -rf /etc/letsencrypt/archive/$subDomain.{{domain}} /containerData/homeServices/nginx/certs/
-    - mv /containerData/homeServices/nginx/certs/$subDomain.{{domain}}/ /containerData/homeServices/nginx/certs/$subDomain/
+    - cp -rf /etc/letsencrypt/archive/$subDomain.$domain /containerData/homeServices/nginx/certs/
+    - mv /containerData/homeServices/nginx/certs/$subDomain.$domain/ /containerData/homeServices/nginx/certs/$subDomain/
 
 nginx-Restart_second:
   stage: Restart nginx-2
