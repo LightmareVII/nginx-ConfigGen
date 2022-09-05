@@ -1,0 +1,73 @@
+stages:
+    - Copy Default Certs
+    - Generate nginx.config
+    - Restart nginx-1
+    - New Certs
+    - Restart nginx-2
+
+copy-DefaultCerts:
+  stage: Copy Default Certs
+  tags:
+    - homeServices
+  rules:
+    - if: '$nginxRefresh == "true"'
+      when: always
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+      when: always
+  script:
+    - docker container stop copy-defaultCerts || echo No Container to STOP
+    - docker container rm copy-defaultCerts || echo No Container to RM
+    - docker image remove copy-defaultcerts:1.0 || echo No Image to RM
+    - docker build -t copy-defaultcerts:1.0 defaultCerts/
+    - docker run --name copy-defaultCerts -v /containerData/homeServices/nginx:/nginx copy-defaultcerts:1.0
+
+nginx-generateConfig:
+  stage: Generate nginx.config
+  tags:
+    - homeServices
+  rules:
+    - when: on_success
+  script:
+    - docker container stop nginx-generateConfig || echo No Container to STOP
+    - docker container rm nginx-generateConfig || echo No Container to RM
+    - docker image remove nginx-generateconfig:1.0 || echo No Image to RM
+    - docker build -t nginx-generateconfig:1.0 nginx/
+    - docker run --name nginx-generateConfig -v /containerData/homeServices/nginx:/nginx nginx-generateconfig:1.0
+
+nginx-Restart_first:
+  stage: Restart nginx-1
+  tags:
+    - homeServices
+  rules:
+    - when: on_success
+  script:
+    - docker container stop nginx || echo No Container to stop
+    - docker container rm nginx || echo No Container to rm
+    - docker run --name nginx --restart=always --detach -p 80:80 -p 443:443 -v /containerData/homeServices/nginx/:/etc/nginx nginx
+
+letsEncrypt-NewCert:
+  stage: New Certs
+  tags:
+    - homeServices
+  rules:
+    - if: '$newCertificate == "true"'
+      when: always
+  variables:
+    subDomain: $subDomain
+  script:
+    - echo $subDomain
+    - certbot certonly -d $subDomain.{{domain}} --webroot -w /containerData/homeServices/nginx/challenges
+    - mkdir /containerData/homeServices/nginx/certs/$subDomain || echo Dir Exists-$subDomain
+    - cp -rf /etc/letsencrypt/archive/$subDomain.{{domain}} /containerData/homeServices/nginx/certs/
+    - mv /containerData/homeServices/nginx/certs/$subDomain.{{domain}}/ /containerData/homeServices/nginx/certs/$subDomain/
+
+nginx-Restart_second:
+  stage: Restart nginx-2
+  tags:
+    - homeServices
+  rules:
+    - when: on_success
+  script:
+    - docker container stop nginx || echo No Container to stop
+    - docker container rm nginx || echo No Container to rm
+    - docker run --name nginx --restart=always --detach -p 80:80 -p 443:443 -v /containerData/homeServices/nginx/:/etc/nginx nginx
